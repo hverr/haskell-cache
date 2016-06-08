@@ -9,7 +9,8 @@ maintainer:     henriverroken@gmail.com
 copyright:      2016 Henri Verroken
 category:       Data, Cache
 build-type:     Simple
-cabal-version:  >=1.10
+cabal-version:  >= 1.10
+tested-with:    GHC == 7.10.3, GHC == 8.0.1
 homepage:       https://github.com/hverr/haskell-cache
 bug-reports:    https://github.com/hverr/haskell-cache/issues
 description:
@@ -20,14 +21,14 @@ description:
     with support for expiration times.
 
 library
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall
   hs-source-dirs:      src
   exposed-modules:     Data.Cache
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base >= 4.8 && < 5
                      , clock >= 0.7 && < 0.8
                      , hashable >= 1.0.1.1
                      , stm >= 2.2 && < 3
-                     , transformers >= 0.4.2 && < 0.5
+                     , transformers >= 0.4.2 && < 0.6
                      , unordered-containers >= 0.2.2 && < 0.3
   default-language:    Haskell2010
 
