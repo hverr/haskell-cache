@@ -1,0 +1,51 @@
+name:           cache
+version:        0.1.0.0
+synopsis:       An in-memory key/value store with expiration support
+homepage:       https://github.com/hverr/haskell-cache#readme
+license:        BSD3
+license-file:   LICENSE
+author:         Henri Verroken
+maintainer:     henriverroken@gmail.com
+copyright:      2016 Henri Verroken
+category:       Data, Cache
+build-type:     Simple
+cabal-version:  >=1.10
+homepage:       https://github.com/hverr/haskell-cache
+bug-reports:    https://github.com/hverr/haskell-cache/issues
+description:
+    An in-memory key/value store with expiration support, similar
+    to patrickmn/go-cache for Go.
+    .
+    The cache is a shared mutable HashMap implemented using STM and
+    with support for expiration times.
+
+library
+  ghc-options:         -Wall -Werror
+  hs-source-dirs:      src
+  exposed-modules:     Data.Cache
+  build-depends:       base >= 4.7 && < 5
+                     , clock
+                     , hashable
+                     , stm
+                     , transformers
+                     , unordered-containers
+  default-language:    Haskell2010
+
+test-suite cache-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules:       Data.CacheSpec
+  build-depends:       base
+                     , cache
+                     , clock
+                     , hspec
+                  -- , hpc-coveralls
+                     , stm
+                     , transformers
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/hverr/cache

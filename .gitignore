@@ -1,0 +1,5 @@
+# Vim
+.*.sw[a-z]
+
+# Stack
+.stack-work
