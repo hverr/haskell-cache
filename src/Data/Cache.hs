@@ -61,8 +61,8 @@ size = atomically . sizeSTM
 deleteSTM :: (Eq k, Hashable k) => k -> Cache k v -> STM ()
 deleteSTM k c = writeTVar v =<< (HM.delete k <$> readTVar v) where v = container c
 
-delete :: (Eq k, Hashable k) => k -> Cache k v -> IO ()
-delete k c = atomically $ deleteSTM k c
+delete :: (Eq k, Hashable k) => Cache k v -> k -> IO ()
+delete c k = atomically $ deleteSTM k c
 
 lookupItem' :: (Eq k, Hashable k) => k -> Cache k v -> STM (Maybe (CacheItem v))
 lookupItem' k c = HM.lookup k <$> readTVar (container c)
@@ -77,11 +77,11 @@ lookupItemT del k c t = runMaybeT $ do
 lookupItem :: (Eq k, Hashable k) => Bool -> k -> Cache k v -> IO (Maybe (CacheItem v))
 lookupItem del k c = (atomically . lookupItemT del k c) =<< now
 
-lookup' :: (Eq k, Hashable k) => k -> Cache k v -> IO (Maybe v)
-lookup' k c = runMaybeT $ item <$> MaybeT (lookupItem False k c)
+lookup' :: (Eq k, Hashable k) => Cache k v -> k -> IO (Maybe v)
+lookup' c k = runMaybeT $ item <$> MaybeT (lookupItem False k c)
 
-lookup :: (Eq k, Hashable k) => k -> Cache k v -> IO (Maybe v)
-lookup k c = runMaybeT $ item <$> MaybeT (lookupItem True k c)
+lookup :: (Eq k, Hashable k) => Cache k v -> k -> IO (Maybe v)
+lookup c k = runMaybeT $ item <$> MaybeT (lookupItem True k c)
 
 insertItem :: (Eq k, Hashable k) => k -> CacheItem v -> Cache k v -> STM ()
 insertItem k a c = writeTVar v =<< (HM.insert k a <$> readTVar v) where v = container c
@@ -89,12 +89,12 @@ insertItem k a c = writeTVar v =<< (HM.insert k a <$> readTVar v) where v = cont
 insertT :: (Eq k, Hashable k) => k -> v -> Cache k v -> Maybe TimeSpec -> STM ()
 insertT k a c t = insertItem k (CacheItem a t) c
 
-insert' :: (Eq k, Hashable k) => k -> v -> Maybe TimeSpec -> Cache k v -> IO ()
-insert' k a Nothing c  = atomically $ insertT k a c Nothing
-insert' k a (Just d) c = atomically . insertT k a c =<< Just . (d +) <$> now
+insert' :: (Eq k, Hashable k) =>  Cache k v -> Maybe TimeSpec -> k -> v -> IO ()
+insert' c Nothing k a  = atomically $ insertT k a c Nothing
+insert' c (Just d) k a = atomically . insertT k a c =<< Just . (d +) <$> now
 
-insert :: (Eq k, Hashable k) => k -> v -> Cache k v -> IO ()
-insert k a c = insert' k a (defaultExpiration c) c
+insert :: (Eq k, Hashable k) => Cache k v -> k -> v -> IO ()
+insert c = insert' c (defaultExpiration c)
 
 now :: IO TimeSpec
 now = getTime Monotonic
