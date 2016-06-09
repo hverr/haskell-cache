@@ -25,11 +25,15 @@ module Data.Cache (
   , copyCache
 
     -- * Managing items
-  , delete
+    -- ** Insertion
   , insert
   , insert'
+    -- ** Querying
   , lookup
   , lookup'
+  , keys
+    -- ** Deletion
+  , delete
 
     -- * Cache information
   , size
@@ -161,6 +165,13 @@ insert' c (Just d) k a = atomically . insertT k a c =<< Just . (d +) <$> now
 -- the cache.
 insert :: (Eq k, Hashable k) => Cache k v -> k -> v -> IO ()
 insert c = insert' c (defaultExpiration c)
+
+keysSTM :: Cache k v -> STM [k]
+keysSTM c = HM.keys <$> readTVar (container c)
+
+-- | Return all keys present in the cache.
+keys :: Cache k v -> IO [k]
+keys = atomically . keysSTM
 
 now :: IO TimeSpec
 now = getTime Monotonic
