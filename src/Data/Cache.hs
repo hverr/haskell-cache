@@ -6,9 +6,9 @@
 -- Stability:   experimental
 --
 -- An in-memory key/value store with expiration support, similar
--- to patrickmn/go-cache for GO.
+-- to patrickmn/go-cache for Go.
 --
--- The cache is a shard mutable HashMap implemented using STM. It
+-- The cache is a shared mutable HashMap implemented using STM. It
 -- supports item expiration.
 
 module Data.Cache (
