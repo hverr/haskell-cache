@@ -34,6 +34,7 @@ module Data.Cache (
   , keys
     -- ** Deletion
   , delete
+  , purgeExpired
 
     -- * Cache information
   , size
@@ -175,6 +176,15 @@ keys = atomically . keysSTM
 
 now :: IO TimeSpec
 now = getTime Monotonic
+
+purgeExpiredSTM :: (Eq k, Hashable k) => Cache k v -> TimeSpec -> STM ()
+purgeExpiredSTM c t = mapM_ (\k -> lookupItemT True k c t) =<< keysSTM c
+
+-- | Delete all items that are expired.
+--
+-- This is one big atomic operation.
+purgeExpired :: (Eq k, Hashable k) => Cache k v -> IO ()
+purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 
 -- $use
 --

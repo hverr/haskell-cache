@@ -61,6 +61,12 @@ spec = do
         c <- liftIO $ defCache Nothing
         liftIO (keys c) >>= (`shouldContain` [(fst ok)])
         liftIO (keys c) >>= (`shouldContain` [(fst notExpired)])
+    it "should purge expired keys" $ do
+        c <- liftIO $ defCache Nothing
+        _ <- liftIO $ expire defExpiration
+        liftIO (size c) >>= (`shouldBe` 4)
+        _ <- liftIO $ purgeExpired c
+        liftIO (size c) >>= (`shouldBe` 3)
 
 defExpiration :: TimeSpec
 defExpiration = 1000000
