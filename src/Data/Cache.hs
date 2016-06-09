@@ -25,11 +25,16 @@ module Data.Cache (
   , copyCache
 
     -- * Managing items
-  , delete
+    -- ** Insertion
   , insert
   , insert'
+    -- ** Querying
   , lookup
   , lookup'
+  , keys
+    -- ** Deletion
+  , delete
+  , purgeExpired
 
     -- * Cache information
   , size
@@ -162,8 +167,24 @@ insert' c (Just d) k a = atomically . insertT k a c =<< Just . (d +) <$> now
 insert :: (Eq k, Hashable k) => Cache k v -> k -> v -> IO ()
 insert c = insert' c (defaultExpiration c)
 
+keysSTM :: Cache k v -> STM [k]
+keysSTM c = HM.keys <$> readTVar (container c)
+
+-- | Return all keys present in the cache.
+keys :: Cache k v -> IO [k]
+keys = atomically . keysSTM
+
 now :: IO TimeSpec
 now = getTime Monotonic
+
+purgeExpiredSTM :: (Eq k, Hashable k) => Cache k v -> TimeSpec -> STM ()
+purgeExpiredSTM c t = mapM_ (\k -> lookupItemT True k c t) =<< keysSTM c
+
+-- | Delete all items that are expired.
+--
+-- This is one big atomic operation.
+purgeExpired :: (Eq k, Hashable k) => Cache k v -> IO ()
+purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 
 -- $use
 --
