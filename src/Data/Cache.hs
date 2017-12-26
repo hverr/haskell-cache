@@ -78,11 +78,6 @@ isExpired t i = fromMaybe False (itemExpiration i >>= f t)
             | e < now'   = Just True
             | otherwise = Just False
 
-newCacheSTM :: Maybe TimeSpec -> STM (Cache k v)
-newCacheSTM d = do
-    m <- newTVar HM.empty
-    return Cache { container = m, defaultExpiration = d }
-
 -- | Create a new cache with a default expiration value for newly
 -- added cache items.
 --
@@ -92,7 +87,9 @@ newCacheSTM d = do
 -- If the specified default expiration value is `Nothing`, items inserted
 -- by 'insert' will never expire.
 newCache :: Maybe TimeSpec -> IO (Cache k v)
-newCache = atomically . newCacheSTM
+newCache d = do
+    m <- newTVarIO HM.empty
+    return Cache { container = m, defaultExpiration = d }
 
 copyCacheSTM :: Cache k v -> STM (Cache k v)
 copyCacheSTM c = do
