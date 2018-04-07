@@ -1,9 +1,9 @@
 -- |
 -- Module:      Data.Cache
 -- Copyright:   (c) 2016 Henri Verroken
--- LIcense:     BSD3
+-- License:     BSD3
 -- Maintainer:  Henri Verroken <henriverroken@gmail.com>
--- Stability:   experimental
+-- Stability:   stable
 --
 -- An in-memory key/value store with expiration support, similar
 -- to patrickmn/go-cache for Go.
@@ -18,26 +18,34 @@ module Data.Cache (
     -- * Creating a cache
     Cache
   , newCache
+  , newCacheSTM
 
     -- * Cache properties
   , defaultExpiration
   , setDefaultExpiration
   , copyCache
+  , copyCacheSTM
 
     -- * Managing items
     -- ** Insertion
   , insert
   , insert'
+  , insertSTM
     -- ** Querying
   , lookup
   , lookup'
+  , lookupSTM
   , keys
+  , keysSTM
     -- ** Deletion
   , delete
+  , deleteSTM
   , purgeExpired
+  , purgeExpiredSTM
 
     -- * Cache information
   , size
+  , sizeSTM
 ) where
 
 import Prelude hiding (lookup)
@@ -45,21 +53,11 @@ import Prelude hiding (lookup)
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import Data.Cache.Internal
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import Data.Maybe
 import System.Clock
-
--- | The cache with keys of type @k@ and values of type @v@.
---
--- Create caches with the 'newCache' and 'copyCache' functions.
-data Cache k v = Cache {
-    container :: TVar (HM.HashMap k (CacheItem v))
-    -- | The default expiration value of newly added cache items.
-    --
-    -- See 'newCache' for more information on the default expiration value.
-  , defaultExpiration :: Maybe TimeSpec
-}
 
 -- | Change the default expiration value of newly added cache items.
 --
@@ -67,10 +65,6 @@ data Cache k v = Cache {
 setDefaultExpiration :: Cache k v -> Maybe TimeSpec -> Cache k v
 setDefaultExpiration c t = c { defaultExpiration = t }
 
-data CacheItem v = CacheItem {
-    item :: v
-  , itemExpiration :: Maybe TimeSpec
-}
 
 isExpired :: TimeSpec -> CacheItem v -> Bool
 isExpired t i = fromMaybe False (itemExpiration i >>= f t)
@@ -91,6 +85,12 @@ newCache d = do
     m <- newTVarIO HM.empty
     return Cache { container = m, defaultExpiration = d }
 
+-- | STM variant of 'newCache'
+newCacheSTM :: Maybe TimeSpec -> STM (Cache k v)
+newCacheSTM d = do
+    m <- newTVar HM.empty
+    return Cache { container = m, defaultExpiration = d }
+
 copyCacheSTM :: Cache k v -> STM (Cache k v)
 copyCacheSTM c = do
     m <- newTVar =<< readTVar (container c)
@@ -100,6 +100,7 @@ copyCacheSTM c = do
 copyCache :: Cache k v -> IO (Cache k v)
 copyCache = atomically . copyCacheSTM
 
+-- | STM variant of 'size'
 sizeSTM :: Cache k v -> STM Int
 sizeSTM c = HM.size <$> readTVar (container c)
 
@@ -107,6 +108,7 @@ sizeSTM c = HM.size <$> readTVar (container c)
 size :: Cache k v -> IO Int
 size = atomically . sizeSTM
 
+-- | STM variant of 'delete'.
 deleteSTM :: (Eq k, Hashable k) => k -> Cache k v -> STM ()
 deleteSTM k c = writeTVar v =<< (HM.delete k <$> readTVar v) where v = container c
 
@@ -145,25 +147,59 @@ lookup' c k = runMaybeT $ item <$> MaybeT (lookupItem False k c)
 lookup :: (Eq k, Hashable k) => Cache k v -> k -> IO (Maybe v)
 lookup c k = runMaybeT $ item <$> MaybeT (lookupItem True k c)
 
+-- | Lookup an item with a given key in the 'STM' monad, given the current 'Monotonic' time.
+--
+-- STM variant of 'lookup' and 'lookup''
+lookupSTM :: (Eq k, Hashable k) => Bool             -- ^ Whether or not to eagerly delete the item if its expired
+                                -> k                -- ^ The key to lookup
+                                -> Cache k v        -- ^ The cache
+                                -> TimeSpec         -- ^ The current 'Monotonic' time, i.e. @getTime Monotonic@
+                                -> STM (Maybe v)
+lookupSTM f k c t = do
+    mv <- lookupItemT f k c t
+    return $! item <$> mv
+
 insertItem :: (Eq k, Hashable k) => k -> CacheItem v -> Cache k v -> STM ()
 insertItem k a c = writeTVar v =<< (HM.insert k a <$> readTVar v) where v = container c
 
-insertT :: (Eq k, Hashable k) => k -> v -> Cache k v -> Maybe TimeSpec -> STM ()
-insertT k a c t = insertItem k (CacheItem a t) c
+-- | Insert an item in the cache, with an explicit expiration value, in the
+-- 'STM' monad.
+--
+-- If the expiration value is 'Nothing', the item will never expire. The
+-- default expiration value of the cache is ignored.
+--
+-- The expiration value is the absolute 'Monotonic' time the item expires. You
+-- should manually construct the absolute 'Monotonic' time, as opposed to the
+-- behaviour of 'insert''.
+--
+-- E.g.
+--
+-- > action :: Cache -> IO ()
+-- > action c = do
+-- >     t <- getTime Monotonic
+-- >     let t' = t + (defaultExpiration c)
+-- >     atomically $ insertSTM 0 0 c (Just t')
+--
+insertSTM :: (Eq k, Hashable k) => k -> v -> Cache k v -> Maybe TimeSpec -> STM ()
+insertSTM k a c t = insertItem k (CacheItem a t) c
 
 -- | Insert an item in the cache, with an explicit expiration value.
 --
 -- If the expiration value is 'Nothing', the item will never expire. The
 -- default expiration value of the cache is ignored.
+--
+-- The expiration value is relative to the current 'Monotonic' time, i.e. it
+-- will be automatically added to the result of @getTime Monotonic@.
 insert' :: (Eq k, Hashable k) =>  Cache k v -> Maybe TimeSpec -> k -> v -> IO ()
-insert' c Nothing k a  = atomically $ insertT k a c Nothing
-insert' c (Just d) k a = atomically . insertT k a c =<< Just . (d +) <$> now
+insert' c Nothing k a  = atomically $ insertSTM k a c Nothing
+insert' c (Just d) k a = atomically . insertSTM k a c =<< Just . (d +) <$> now
 
 -- | Insert an item in the cache, using the default expiration value of
 -- the cache.
 insert :: (Eq k, Hashable k) => Cache k v -> k -> v -> IO ()
 insert c = insert' c (defaultExpiration c)
 
+-- | STM variant of 'keys'.
 keysSTM :: Cache k v -> STM [k]
 keysSTM c = HM.keys <$> readTVar (container c)
 
@@ -174,6 +210,10 @@ keys = atomically . keysSTM
 now :: IO TimeSpec
 now = getTime Monotonic
 
+-- | STM variant of 'purgeExpired'.
+--
+-- The 'TimeSpec' argument should be the current 'Monotonic' time, i.e.
+-- @getTime Monotonic@.
 purgeExpiredSTM :: (Eq k, Hashable k) => Cache k v -> TimeSpec -> STM ()
 purgeExpiredSTM c t = mapM_ (\k -> lookupItemT True k c t) =<< keysSTM c
 
