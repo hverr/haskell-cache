@@ -1,7 +1,7 @@
 -- |
 -- Module:      Data.Cache
 -- Copyright:   (c) 2016 Henri Verroken
--- LIcense:     BSD3
+-- License:     BSD3
 -- Maintainer:  Henri Verroken <henriverroken@gmail.com>
 -- Stability:   stable
 --
