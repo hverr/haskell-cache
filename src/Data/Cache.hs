@@ -3,7 +3,7 @@
 -- Copyright:   (c) 2016 Henri Verroken
 -- LIcense:     BSD3
 -- Maintainer:  Henri Verroken <henriverroken@gmail.com>
--- Stability:   experimental
+-- Stability:   stable
 --
 -- An in-memory key/value store with expiration support, similar
 -- to patrickmn/go-cache for Go.
@@ -53,21 +53,11 @@ import Prelude hiding (lookup)
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import Data.Cache.Internal
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import Data.Maybe
 import System.Clock
-
--- | The cache with keys of type @k@ and values of type @v@.
---
--- Create caches with the 'newCache' and 'copyCache' functions.
-data Cache k v = Cache {
-    container :: TVar (HM.HashMap k (CacheItem v))
-    -- | The default expiration value of newly added cache items.
-    --
-    -- See 'newCache' for more information on the default expiration value.
-  , defaultExpiration :: Maybe TimeSpec
-}
 
 -- | Change the default expiration value of newly added cache items.
 --
@@ -75,10 +65,6 @@ data Cache k v = Cache {
 setDefaultExpiration :: Cache k v -> Maybe TimeSpec -> Cache k v
 setDefaultExpiration c t = c { defaultExpiration = t }
 
-data CacheItem v = CacheItem {
-    item :: v
-  , itemExpiration :: Maybe TimeSpec
-}
 
 isExpired :: TimeSpec -> CacheItem v -> Bool
 isExpired t i = fromMaybe False (itemExpiration i >>= f t)
