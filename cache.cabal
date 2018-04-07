@@ -11,7 +11,6 @@ category:       Data, Cache
 build-type:     Simple
 cabal-version:  >= 1.10
 tested-with:    GHC == 7.10.3, GHC == 8.0.1
-homepage:       https://github.com/hverr/haskell-cache
 bug-reports:    https://github.com/hverr/haskell-cache/issues
 description:
     An in-memory key/value store with expiration support, similar
