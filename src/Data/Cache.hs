@@ -225,7 +225,7 @@ purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 
 -- $use
 --
--- All operations are atomically executed in the IO monad. The
+-- All operations are automically executed in the IO monad. The
 -- underlying data structure is @Data.HashMap.Strict@.
 --
 -- First create a cache using 'newCache' and possibly a default
@@ -236,6 +236,10 @@ purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 -- only return a value when the item is in the cache and it is not
 -- expired. The 'lookup' function will automatically delete the
 -- item if it is expired, while 'lookup'' won't delete the item.
+--
+-- Note that items are __not purged automatically__ in the background when they
+-- expire. You have to manually call 'lookup' to purge a single item, or call
+-- 'purgeExpired' to purge all expired items.
 --
 -- > >>> c <- newCache Nothing :: IO (Cache String String)
 -- > >>> insert c "key" "value"
