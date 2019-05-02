@@ -25,7 +25,7 @@ library
   exposed-modules:     Data.Cache
                      , Data.Cache.Internal
   build-depends:       base >= 4.8 && < 5
-                     , clock >= 0.7 && < 0.8
+                     , clock >= 0.7 && < 0.9
                      , hashable >= 1.0.1.1
                      , stm >= 2.2 && < 3
                      , transformers >= 0.4.2 && < 0.6
