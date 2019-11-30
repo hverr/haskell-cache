@@ -42,6 +42,8 @@ module Data.Cache (
   , deleteSTM
   , purgeExpired
   , purgeExpiredSTM
+    -- ** Combined actions
+  , fetchWithCache
 
     -- * Cache information
   , size
@@ -198,6 +200,18 @@ insert' c (Just d) k a = atomically . insertSTM k a c =<< Just . (d +) <$> now
 -- the cache.
 insert :: (Eq k, Hashable k) => Cache k v -> k -> v -> IO ()
 insert c = insert' c (defaultExpiration c)
+
+-- | Get a value from cache. If not available from cache, use the provided action and update the cache.
+-- Note that the cache check and conditional execution of the action is not one atomic action.
+fetchWithCache :: (Eq k, Hashable k) => Cache k v -> k -> (k -> IO v) -> IO v
+fetchWithCache c k f = do
+  mv <- lookup c k
+  case mv of
+    Just v -> return v
+    Nothing -> do
+       v <- f k
+       insert c k v
+       return v
 
 -- | STM variant of 'keys'.
 keysSTM :: Cache k v -> STM [k]
