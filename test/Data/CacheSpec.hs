@@ -67,6 +67,13 @@ spec = do
         liftIO (size c) >>= (`shouldBe` 4)
         _ <- liftIO $ purgeExpired c
         liftIO (size c) >>= (`shouldBe` 3)
+    it "should work with actions" $ do
+        c <- liftIO $ defCache Nothing
+        _ <- liftIO $ expire defExpiration
+        liftIO (fetchWithCache c (fst ok) (const $ return 10))               >>= (`shouldBe` (snd ok))
+        liftIO (fetchWithCache c (fst expired) (const $ return 10))          >>= (`shouldBe` 10)
+        liftIO (fetchWithCache c (fst action) (const $ return (snd action))) >>= (`shouldBe` (snd action))
+        liftIO (lookup' c (fst action) )                                     >>= (`shouldBe` Just (snd action))
 
 defExpiration :: TimeSpec
 defExpiration = 1000000
@@ -91,6 +98,9 @@ notAvailable = ("not available", 2)
 
 ok :: (String, Int)
 ok = ("ok", 3)
+
+action :: (String, Int)
+action = ("action", 6)
 
 defCache :: Maybe TimeSpec -> IO (Cache String Int)
 defCache t = do
