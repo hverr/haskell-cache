@@ -48,6 +48,12 @@ spec = do
         liftIO (lookup' c (fst notExpired)  ) >>= (`shouldBe` Just (snd notExpired))
         liftIO (lookup' c (fst expired)     ) >>= (`shouldBe` Nothing)
         liftIO (lookup' c (fst autoExpired) ) >>= (`shouldBe` Just (snd autoExpired))
+    it "should filter items" $ do
+        c <- liftIO $ defCache Nothing
+        _ <- liftIO $ expire defExpiration
+        liftIO (size c) >>= (`shouldBe` 4)
+        _ <- liftIO $ filterWith (\r -> r /= fst ok) c
+        liftIO (size c) >>= (`shouldBe` 3)
     it "should copy" $ do
         c  <- liftIO $ defCache Nothing
         c' <- liftIO $ copyCache c
@@ -67,6 +73,8 @@ spec = do
         liftIO (size c) >>= (`shouldBe` 4)
         _ <- liftIO $ purgeExpired c
         liftIO (size c) >>= (`shouldBe` 3)
+        _ <- liftIO $ purge c
+        liftIO (size c) >>= (`shouldBe` 0)
     it "should work with actions" $ do
         c <- liftIO $ defCache Nothing
         _ <- liftIO $ expire defExpiration
