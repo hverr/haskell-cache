@@ -55,6 +55,7 @@ import Prelude hiding (lookup)
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class
 import Data.Cache.Internal
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
@@ -203,14 +204,14 @@ insert c = insert' c (defaultExpiration c)
 
 -- | Get a value from cache. If not available from cache, use the provided action and update the cache.
 -- Note that the cache check and conditional execution of the action is not one atomic action.
-fetchWithCache :: (Eq k, Hashable k) => Cache k v -> k -> (k -> IO v) -> IO v
+fetchWithCache :: (Eq k, Hashable k, MonadIO m) => Cache k v -> k -> (k -> m v) -> m v
 fetchWithCache c k f = do
-  mv <- lookup c k
+  mv <- liftIO $ lookup c k
   case mv of
     Just v -> return v
     Nothing -> do
        v <- f k
-       insert c k v
+       liftIO $ insert c k v
        return v
 
 -- | STM variant of 'keys'.
