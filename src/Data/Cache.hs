@@ -229,7 +229,7 @@ now :: IO TimeSpec
 now = getTime Monotonic
 
 -- | Keeps elements that satify a predicate (used for cache invalidation).
--- | Note that the predicate might be called for expired items.
+-- Note that the predicate might be called for expired items.
 filterWithKey :: (Eq k, Hashable k) => (k -> v -> Bool) -> Cache k v -> IO ()
 filterWithKey f c = atomically $ writeTVar c' =<< (HM.filterWithKey (\k (CacheItem v _) -> f k v) <$> readTVar c') where c' = container c
 
