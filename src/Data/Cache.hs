@@ -40,6 +40,8 @@ module Data.Cache (
     -- ** Deletion
   , delete
   , deleteSTM
+  , filterWithKey
+  , purge
   , purgeExpired
   , purgeExpiredSTM
     -- ** Combined actions
@@ -48,6 +50,7 @@ module Data.Cache (
     -- * Cache information
   , size
   , sizeSTM
+  , toList
 ) where
 
 import Prelude hiding (lookup)
@@ -55,6 +58,7 @@ import Prelude hiding (lookup)
 import Control.Concurrent.STM
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import Control.Monad.IO.Class
 import Data.Cache.Internal
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
@@ -203,14 +207,14 @@ insert c = insert' c (defaultExpiration c)
 
 -- | Get a value from cache. If not available from cache, use the provided action and update the cache.
 -- Note that the cache check and conditional execution of the action is not one atomic action.
-fetchWithCache :: (Eq k, Hashable k) => Cache k v -> k -> (k -> IO v) -> IO v
+fetchWithCache :: (Eq k, Hashable k, MonadIO m) => Cache k v -> k -> (k -> m v) -> m v
 fetchWithCache c k f = do
-  mv <- lookup c k
+  mv <- liftIO $ lookup c k
   case mv of
     Just v -> return v
     Nothing -> do
        v <- f k
-       insert c k v
+       liftIO $ insert c k v
        return v
 
 -- | STM variant of 'keys'.
@@ -223,6 +227,15 @@ keys = atomically . keysSTM
 
 now :: IO TimeSpec
 now = getTime Monotonic
+
+-- | Keeps elements that satify a predicate (used for cache invalidation).
+-- | Note that the predicate might be called for expired items.
+filterWithKey :: (Eq k, Hashable k) => (k -> v -> Bool) -> Cache k v -> IO ()
+filterWithKey f c = atomically $ writeTVar c' =<< (HM.filterWithKey (\k (CacheItem v _) -> f k v) <$> readTVar c') where c' = container c
+
+-- | Delete all elements (cache invalidation).
+purge :: (Eq k, Hashable k) => Cache k v -> IO ()
+purge c = atomically $ writeTVar v HM.empty where v = container c
 
 -- | STM variant of 'purgeExpired'.
 --
@@ -237,6 +250,14 @@ purgeExpiredSTM c t = mapM_ (\k -> lookupItemT True k c t) =<< keysSTM c
 purgeExpired :: (Eq k, Hashable k) => Cache k v -> IO ()
 purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 
+-- | Returns the cache content as a list.
+-- The third element of the tuple is the expiration date. Nothing means that it doesn't expire.
+toList :: Cache k v -> IO [(k, v, Maybe TimeSpec)]
+toList c = atomically $ do
+  m <- readTVar $ container c
+  let l = HM.toList m
+  return $ map (\(k, (CacheItem v i)) -> (k, v, i)) l
+  
 -- $use
 --
 -- All operations are automically executed in the IO monad. The
