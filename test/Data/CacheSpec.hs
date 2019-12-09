@@ -52,7 +52,7 @@ spec = do
         c <- liftIO $ defCache Nothing
         _ <- liftIO $ expire defExpiration
         liftIO (size c) >>= (`shouldBe` 4)
-        _ <- liftIO $ filterWith (\r -> r /= fst ok) c
+        _ <- liftIO $ filterWithKey (\r _ -> r /= fst ok) c
         liftIO (size c) >>= (`shouldBe` 3)
     it "should copy" $ do
         c  <- liftIO $ defCache Nothing

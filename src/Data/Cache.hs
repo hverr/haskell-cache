@@ -40,7 +40,7 @@ module Data.Cache (
     -- ** Deletion
   , delete
   , deleteSTM
-  , filterWith
+  , filterWithKey
   , purge
   , purgeExpired
   , purgeExpiredSTM
@@ -227,11 +227,11 @@ keys = atomically . keysSTM
 now :: IO TimeSpec
 now = getTime Monotonic
 
--- | keeps elements that satify a predicate (used for cache invalidation).
-filterWith :: (Eq k, Hashable k) => (k -> Bool) -> Cache k v -> IO ()
-filterWith f c = atomically $ writeTVar v =<< (HM.filterWithKey (\k _ -> f k) <$> readTVar v) where v = container c
+-- | Keeps elements that satify a predicate (used for cache invalidation).
+filterWithKey :: (Eq k, Hashable k) => (k -> CacheItem v -> Bool) -> Cache k v -> IO ()
+filterWithKey f c = atomically $ writeTVar c' =<< (HM.filterWithKey f <$> readTVar c') where c' = container c
 
--- | delete all elements (cache invalidation).
+-- | Delete all elements (cache invalidation).
 purge :: (Eq k, Hashable k) => Cache k v -> IO ()
 purge c = atomically $ writeTVar v HM.empty where v = container c
 
