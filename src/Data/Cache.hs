@@ -50,6 +50,7 @@ module Data.Cache (
     -- * Cache information
   , size
   , sizeSTM
+  , toList
 ) where
 
 import Prelude hiding (lookup)
@@ -228,8 +229,9 @@ now :: IO TimeSpec
 now = getTime Monotonic
 
 -- | Keeps elements that satify a predicate (used for cache invalidation).
-filterWithKey :: (Eq k, Hashable k) => (k -> CacheItem v -> Bool) -> Cache k v -> IO ()
-filterWithKey f c = atomically $ writeTVar c' =<< (HM.filterWithKey f <$> readTVar c') where c' = container c
+-- | Note that the predicate might be called for expired items.
+filterWithKey :: (Eq k, Hashable k) => (k -> v -> Bool) -> Cache k v -> IO ()
+filterWithKey f c = atomically $ writeTVar c' =<< (HM.filterWithKey (\k (CacheItem v _) -> f k v) <$> readTVar c') where c' = container c
 
 -- | Delete all elements (cache invalidation).
 purge :: (Eq k, Hashable k) => Cache k v -> IO ()
@@ -248,6 +250,14 @@ purgeExpiredSTM c t = mapM_ (\k -> lookupItemT True k c t) =<< keysSTM c
 purgeExpired :: (Eq k, Hashable k) => Cache k v -> IO ()
 purgeExpired c = (atomically . purgeExpiredSTM c) =<< now
 
+-- | Returns the cache content as a list.
+-- The third element of the tuple is the expiration date. Nothing means that it doesn't expire.
+toList :: Cache k v -> IO [(k, v, Maybe TimeSpec)]
+toList c = atomically $ do
+  m <- readTVar $ container c
+  let l = HM.toList m
+  return $ map (\(k, (CacheItem v i)) -> (k, v, i)) l
+  
 -- $use
 --
 -- All operations are automically executed in the IO monad. The
