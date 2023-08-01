@@ -28,7 +28,7 @@ library
                      , clock >= 0.7 && < 0.9
                      , hashable >= 1.0.1.1
                      , stm >= 2.2 && < 3
-                     , transformers >= 0.4.2 && < 0.6
+                     , transformers >= 0.4.2 && < 0.7
                      , unordered-containers >= 0.2.2 && < 0.3
   default-language:    Haskell2010
 
